@@ -9,13 +9,14 @@ import org.springframework.web.bind.annotation.ResponseBody;
 @Controller
 public class AppController {
 
-    // This method tells Spring to serve our main HTML file when a user goes to /chat
+    // This is the critical mapping that was missing.
+    // It tells Spring: "When a user goes to /chat, serve them the index.html file."
     @GetMapping("/chat")
     public String chatPage() {
-        return "index"; // This tells Spring to find and return index.html
+        return "index"; 
     }
     
-    // This new endpoint will be called by our JavaScript to get the logged-in user's name
+    // This endpoint lets the frontend know who is logged in.
     @GetMapping("/api/user/me")
     @ResponseBody
     public String getCurrentUser(Principal principal) {
