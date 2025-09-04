@@ -20,19 +20,19 @@ public class WebSecurityConfig {
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
-            .csrf(csrf -> csrf.disable()) // Disable CSRF for simplicity with our API/WebSocket app
+            .csrf(csrf -> csrf.disable())
             .authorizeHttpRequests(auth -> auth
-                // Allow access to static resources, registration, and the WebSocket endpoint
-                .requestMatchers("/", "/index.html", "/css/**", "/js/**", "/ws/**").permitAll()
-                .requestMatchers("/api/register").permitAll()
+                // Allow public access
+                .requestMatchers("/", "/index.html", "/api/register").permitAll()
+                // Require authentication for the chat application
+                .requestMatchers("/chat", "/api/user/me", "/ws/**").authenticated()
                 // All other requests must be authenticated
                 .anyRequest().authenticated()
             )
             .formLogin(form -> form
-                // Use a custom login page (which we will build in index.html)
                 .loginPage("/").permitAll()
-                .loginProcessingUrl("/login") // Spring Security will handle POSTs to this URL
-                .defaultSuccessUrl("/chat", true) // Redirect to a virtual /chat URL on success
+                .loginProcessingUrl("/login")
+                .defaultSuccessUrl("/chat", true)
                 .failureUrl("/?error=true")
             )
             .logout(logout -> logout

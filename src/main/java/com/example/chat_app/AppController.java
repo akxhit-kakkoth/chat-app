@@ -9,18 +9,17 @@ import org.springframework.web.bind.annotation.ResponseBody;
 @Controller
 public class AppController {
 
-    // This is the critical mapping that was missing.
-    // It tells Spring: "When a user goes to /chat, serve them the index.html file."
+    // You can remove the /ping endpoint now, we don't need it anymore.
+    
+    // THIS IS THE CORRECTED MAPPING
     @GetMapping("/chat")
     public String chatPage() {
-        return "index"; 
+        return "forward:/index.html"; // The fix is to forward to the static file
     }
     
-    // This endpoint lets the frontend know who is logged in.
     @GetMapping("/api/user/me")
     @ResponseBody
     public String getCurrentUser(Principal principal) {
-        // Principal is automatically injected by Spring Security
         return principal != null ? principal.getName() : "";
     }
 }

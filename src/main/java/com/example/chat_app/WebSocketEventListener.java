@@ -1,6 +1,5 @@
 package com.example.chat_app;
 
-import java.time.Instant;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
@@ -24,8 +23,8 @@ public class WebSocketEventListener {
     @Autowired
     private SimpMessageSendingOperations messagingTemplate;
 
-    // A map to store active users per channel. Key: channel, Value: Set of usernames
-    private static final Map<String, Set<String>> channelUserMap = new ConcurrentHashMap<>();
+    // Map to store active users per conversation. Key: conversationId, Value: Set of usernames
+    private static final Map<Long, Set<String>> conversationUserMap = new ConcurrentHashMap<>();
 
     @EventListener
     public void handleWebSocketConnectListener(SessionConnectedEvent event) {
@@ -37,42 +36,35 @@ public class WebSocketEventListener {
         StompHeaderAccessor headerAccessor = StompHeaderAccessor.wrap(event.getMessage());
 
         String username = (String) headerAccessor.getSessionAttributes().get("username");
-        String channel = (String) headerAccessor.getSessionAttributes().get("channel");
+        Long conversationId = (Long) headerAccessor.getSessionAttributes().get("conversationId");
 
-        if (username != null && channel != null) {
-            logger.info("User Disconnected from channel " + channel + " : " + username);
+        if (username != null && conversationId != null) {
+            logger.info("User Disconnected from conversation " + conversationId + " : " + username);
 
             ChatMessage chatMessage = new ChatMessage();
             chatMessage.setType(ChatMessage.MessageType.LEAVE);
             chatMessage.setSender(username);
-            chatMessage.setChannel(channel);
-            chatMessage.setTimestamp(Instant.now());
-
-            // Remove user from the channel's user set
-            Set<String> usersInChannel = channelUserMap.getOrDefault(channel, new HashSet<>());
-            usersInChannel.remove(username);
             
-            // If the channel is empty, we can remove it from the map
-            if (usersInChannel.isEmpty()) {
-                channelUserMap.remove(channel);
+            Set<String> usersInConv = conversationUserMap.getOrDefault(conversationId, new HashSet<>());
+            usersInConv.remove(username);
+            
+            if (usersInConv.isEmpty()) {
+                conversationUserMap.remove(conversationId);
             }
 
-            broadcastUserList(channel);
-
-            messagingTemplate.convertAndSend("/topic/public/" + channel, chatMessage);
+            broadcastUserList(conversationId);
+            messagingTemplate.convertAndSend(String.format("/topic/conversation/%d", conversationId), chatMessage);
         }
     }
 
-    public void broadcastUserList(String channel) {
-        Set<String> users = channelUserMap.getOrDefault(channel, new HashSet<>());
-        messagingTemplate.convertAndSend("/topic/users/" + channel, users);
+    public void broadcastUserList(Long conversationId) {
+        Set<String> users = conversationUserMap.getOrDefault(conversationId, new HashSet<>());
+        messagingTemplate.convertAndSend(String.format("/topic/users/%d", conversationId), users);
     }
 
-    public void userJoined(String username, String channel) {
-        // Add user to the channel's user set
-        Set<String> usersInChannel = channelUserMap.computeIfAbsent(channel, k -> new HashSet<>());
-        usersInChannel.add(username);
-        
-        broadcastUserList(channel);
+    public void userJoined(String username, Long conversationId) {
+        Set<String> usersInConv = conversationUserMap.computeIfAbsent(conversationId, k -> new HashSet<>());
+        usersInConv.add(username);
+        broadcastUserList(conversationId);
     }
 }
