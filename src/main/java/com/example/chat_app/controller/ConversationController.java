@@ -1,14 +1,22 @@
-package com.example.chat_app;
-
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.http.ResponseEntity;
-import org.springframework.security.core.annotation.AuthenticationPrincipal;
-import org.springframework.security.core.userdetails.UserDetails;
-import org.springframework.web.bind.annotation.*;
+package com.example.chat_app.controller;
 
 import java.util.Optional;
 import java.util.Set;
-import java.util.stream.Collectors;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.ResponseEntity;
+import org.springframework.messaging.simp.SimpMessagingTemplate;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
+
+import com.example.chat_app.model.User;
+import com.example.chat_app.repository.ConversationRepository;
+import com.example.chatapp.repository.UserRepository;
 
 @RestController
 @RequestMapping("/api/conversations")
@@ -19,15 +27,17 @@ public class ConversationController {
 
     @Autowired
     private ConversationRepository conversationRepository;
+
+    // NEW: Inject the template for sending WebSocket messages
+    @Autowired
+    private SimpMessagingTemplate messagingTemplate;
     
-    // An endpoint for the frontend to get all conversations for the logged-in user
     @GetMapping
     public ResponseEntity<Set<Conversation>> getUserConversations(@AuthenticationPrincipal UserDetails userDetails) {
         User user = userRepository.findByUsername(userDetails.getUsername()).get();
         return ResponseEntity.ok(user.getConversations());
     }
 
-    // An endpoint to create a new group chat
     @PostMapping("/group")
     public ResponseEntity<Conversation> createGroupConversation(@AuthenticationPrincipal UserDetails userDetails, @RequestBody CreateGroupRequest request) {
         User currentUser = userRepository.findByUsername(userDetails.getUsername()).get();
@@ -37,45 +47,54 @@ public class ConversationController {
         newGroup.setType(Conversation.ConversationType.GROUP);
         newGroup.getParticipants().add(currentUser);
 
-        // Find and add other participants
         for (String username : request.getParticipantUsernames()) {
             userRepository.findByUsername(username).ifPresent(user -> newGroup.getParticipants().add(user));
         }
         
         Conversation savedGroup = conversationRepository.save(newGroup);
+
+        // NEW: Notify all participants that a new group has been created
+        savedGroup.getParticipants().forEach(participant -> {
+            messagingTemplate.convertAndSendToUser(participant.getUsername(), "/queue/new-conversation", savedGroup);
+        });
+
         return ResponseEntity.ok(savedGroup);
     }
     
-    // An endpoint to create a new one-on-one personal chat
+    // UPDATED: This now accepts a phone number and pushes updates
     @PostMapping("/personal")
-    public ResponseEntity<Conversation> createPersonalConversation(@AuthenticationPrincipal UserDetails userDetails, @RequestBody String otherUsername) {
+    public ResponseEntity<Conversation> createPersonalConversation(@AuthenticationPrincipal UserDetails userDetails, @RequestBody String otherUserPhoneNumber) {
         User user1 = userRepository.findByUsername(userDetails.getUsername()).get();
-        Optional<User> user2Opt = userRepository.findByUsername(otherUsername);
+        // UPDATED: Find user by phone number instead of username
+        Optional<User> user2Opt = userRepository.findByPhoneNumber(otherUserPhoneNumber);
 
         if (!user2Opt.isPresent()) {
-            return ResponseEntity.badRequest().body(null); // User not found
+            return ResponseEntity.badRequest().body(null);
         }
         User user2 = user2Opt.get();
 
-        // Check if a personal chat already exists between these two users
         for (Conversation conv : user1.getConversations()) {
             if (conv.getType() == Conversation.ConversationType.PERSONAL && conv.getParticipants().contains(user2)) {
-                return ResponseEntity.ok(conv); // Return existing conversation
+                return ResponseEntity.ok(conv);
             }
         }
 
-        // If not, create a new one
         Conversation newPersonalChat = new Conversation();
         newPersonalChat.setType(Conversation.ConversationType.PERSONAL);
         newPersonalChat.getParticipants().add(user1);
         newPersonalChat.getParticipants().add(user2);
         
         Conversation savedChat = conversationRepository.save(newPersonalChat);
+
+        // NEW: Notify both users that a new personal chat has been created
+        messagingTemplate.convertAndSendToUser(user1.getUsername(), "/queue/new-conversation", savedChat);
+        messagingTemplate.convertAndSendToUser(user2.getUsername(), "/queue/new-conversation", savedChat);
+
         return ResponseEntity.ok(savedChat);
     }
 }
 
-// Helper classes for request bodies
+// (Helper class CreateGroupRequest remains the same)
 class CreateGroupRequest {
     private String groupName;
     private Set<String> participantUsernames;

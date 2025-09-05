@@ -5,34 +5,24 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Spring Boot Chat App</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/sockjs-client/1.5.1/sockjs.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/stomp.js/2.3.3/stomp.min.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
         body { font-family: 'Inter', sans-serif; }
-        /* Simple animation for new messages */
-        #messageArea li.new-message {
-            animation: fadeIn 0.5s ease-in-out;
-        }
-        @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(10px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-        /* Styling for conversation list items */
-        .conversation-item {
-            cursor: pointer;
-            transition: background-color 0.2s;
-        }
-        .conversation-item:hover {
-            background-color: #e5e7eb;
-        }
-        .active-conversation {
-            background-color: #dbeafe;
-            font-weight: 600;
-        }
+        .conversation-item { cursor: pointer; transition: background-color 0.2s; }
+        .conversation-item:hover { background-color: #e5e7eb; }
+        .active-conversation { background-color: #dbeafe; font-weight: 600; }
+        .message-wrapper { display: flex; margin-bottom: 8px; }
+        .sent { justify-content: flex-end; }
+        .received { justify-content: flex-start; }
+        .message-bubble { max-width: 75%; padding: 8px 12px; border-radius: 16px; display: flex; gap: 8px; word-break: break-word; }
+        .sent .message-bubble { background-color: #dcfce7; }
+        .received .message-bubble { background-color: #f3f4f6; }
     </style>
 </head>
 <body class="bg-slate-100 text-slate-800 flex items-center justify-center h-screen">
 
-    <!-- Login/Register Page (No changes here) -->
     <div id="auth-page" class="w-full max-w-md">
         <div id="login-view" class="p-8 bg-white rounded-2xl shadow-lg text-center">
             <h1 class="text-2xl font-bold mb-6 text-slate-900">Login to Chat</h1>
@@ -48,6 +38,7 @@
             <h1 class="text-2xl font-bold mb-6 text-slate-900">Create an Account</h1>
             <form id="registerForm" class="space-y-4">
                 <input type="text" id="register-username" placeholder="Choose a username" class="w-full px-4 py-3 border border-slate-300 rounded-lg" required>
+                <input type="tel" id="register-phone" placeholder="Phone number" class="w-full px-4 py-3 border border-slate-300 rounded-lg" required>
                 <input type="password" id="register-password" placeholder="Choose a password" class="w-full px-4 py-3 border border-slate-300 rounded-lg" required>
                 <div id="register-message" class="text-sm"></div>
                 <button type="submit" class="w-full bg-green-500 text-white font-bold py-3 rounded-lg hover:bg-green-600">Register</button>
@@ -56,58 +47,37 @@
         </div>
     </div>
 
-    <!-- NEW WhatsApp-style Chat Page -->
     <div id="chat-page" class="hidden w-full max-w-6xl h-[95vh] flex bg-white rounded-2xl shadow-lg">
-        <!-- Sidebar for conversations -->
-        <aside class="w-1/3 bg-slate-50 border-r border-slate-200 p-4 flex flex-col rounded-l-2xl">
-            <header class="mb-4">
-                <h2 class="text-xl font-bold text-slate-900">Welcome, <span id="current-username"></span>!</h2>
-                <form action="/logout" method="post" class="inline"><button type="submit" class="text-sm text-red-500 hover:underline">Logout</button></form>
-            </header>
-            <div class="flex gap-2 mb-4">
-                <button id="new-group-btn" class="flex-1 bg-blue-500 text-white font-bold py-2 rounded-lg text-sm hover:bg-blue-600">New Group</button>
-                <button id="new-chat-btn" class="flex-1 bg-green-500 text-white font-bold py-2 rounded-lg text-sm hover:bg-green-600">New Chat</button>
-            </div>
-            <h3 class="text-lg font-semibold text-slate-800 mb-2">Chats</h3>
-            <ul id="conversation-list" class="space-y-1 overflow-y-auto flex-1">
-                <!-- Conversation items will be dynamically inserted here -->
-                <li class="text-center text-slate-500 p-4">No conversations yet.</li>
-            </ul>
-        </aside>
-        
-        <!-- Main chat area -->
-        <main id="chat-main" class="w-2/3 flex flex-col">
-            <div id="welcome-view" class="flex flex-col items-center justify-center h-full text-center text-slate-500">
-                <svg class="w-24 h-24 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 5.523-4.477 10-10 10S1 17.523 1 12 5.477 2 11 2s10 4.477 10 10z"></path></svg>
-                <h2 class="text-2xl font-bold">Select a chat to start messaging</h2>
-                <p>Create a new group or start a one-on-one conversation.</p>
-            </div>
-            
-            <div id="chat-view" class="hidden flex-col flex-1">
-                <header class="p-4 border-b border-slate-200"><h2 id="chat-header" class="text-xl font-bold text-slate-900"></h2></header>
-                <ul id="messageArea" class="flex-1 p-6 space-y-2 overflow-y-auto"></ul>
-                <footer class="p-4 bg-slate-50 border-t border-slate-200 rounded-br-2xl">
-                    <form id="messageForm" class="flex gap-3">
-                        <input type="text" id="message" placeholder="Type a message..." autocomplete="off" class="flex-1 px-4 py-3 border border-slate-300 rounded-lg">
-                        <button type="submit" class="bg-blue-500 text-white font-bold py-3 px-6 rounded-lg hover:bg-blue-600">Send</button>
-                    </form>
-                </footer>
-            </div>
-        </main>
+    </div>
+    
+    <div id="new-chat-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center">
+        <div class="bg-white p-6 rounded-lg shadow-xl w-full max-w-md">
+            <h2 class="text-xl font-bold mb-4">Start a New Chat</h2>
+            <input type="text" id="user-search-input" placeholder="Search by phone number..." class="w-full p-2 border border-gray-300 rounded-lg mb-4">
+            <ul id="user-search-results" class="space-y-2 max-h-60 overflow-y-auto mb-4"></ul>
+            <button id="close-modal-btn" class="w-full bg-gray-300 text-gray-800 font-bold py-2 rounded-lg hover:bg-gray-400">Cancel</button>
+        </div>
     </div>
 
     <script>
-        // --- Main App Logic ---
+        // --- Global State ---
+        let stompClient = null;
+        let currentUser = null;
+        let activeConversation = null;
+        let unreadCounts = new Map();
+        const colors = ['#2196F3', '#32c787', '#f44336', '#FFC107', '#FF5722', '#607D8B', '#9C27B0', '#009688'];
+
+        // --- Main App Initialization ---
         async function startApp() {
             if (window.location.pathname.includes('/chat')) {
                 try {
                     const response = await fetch('/api/user/me');
                     if (response.ok) {
-                        const username = await response.text();
-                        if (username) {
-                            document.querySelector('#auth-page').style.display = 'none';
+                        currentUser = await response.text();
+                        if (currentUser) {
+                            document.querySelector('#auth-page').innerHTML = '';
                             document.querySelector('#chat-page').classList.remove('hidden');
-                            initializeChatApp(username); // Pass the username to the chat app
+                            initializeChatApp();
                         }
                     } else { window.location.href = "/"; }
                 } catch (e) { window.location.href = "/"; }
@@ -115,66 +85,187 @@
                 setupAuthPage();
             }
         }
+        
+        // --- API Functions ---
+        async function fetchConversations() { const response = await fetch('/api/conversations'); return response.json(); }
+        async function createPersonalChat(otherUserPhoneNumber) { const response = await fetch('/api/conversations/personal', { method: 'POST', headers: { 'Content-Type': 'text/plain' }, body: otherUserPhoneNumber }); return response.json(); }
+        async function fetchMessages(conversationId) { const response = await fetch(`/api/conversations/${conversationId}/messages`); return response.json(); }
+        async function searchUsers(query) { if(!query) return []; const response = await fetch(`/api/users/search?query=${query}`); return response.json(); }
 
-        function setupAuthPage() {
-            // (This is the same login/register logic as before, no changes needed)
-            document.querySelector('#auth-page').style.display = 'block';
-            const showRegisterLink = document.querySelector('#show-register');
-            const showLoginLink = document.querySelector('#show-login');
-            const registerForm = document.querySelector('#registerForm');
-            const loginError = document.querySelector('#login-error');
-            const registerMessage = document.querySelector('#register-message');
-            showRegisterLink.addEventListener('click', (e) => { e.preventDefault(); document.querySelector('#login-view').classList.add('hidden'); document.querySelector('#register-view').classList.remove('hidden'); });
-            showLoginLink.addEventListener('click', (e) => { e.preventDefault(); document.querySelector('#register-view').classList.add('hidden'); document.querySelector('#login-view').classList.remove('hidden'); });
-            registerForm.addEventListener('submit', async (e) => {
-                e.preventDefault();
-                const regUsername = document.querySelector('#register-username').value.trim();
-                const regPassword = document.querySelector('#register-password').value.trim();
-                if (!regUsername || !regPassword) return;
-                try {
-                    const response = await fetch('/api/register', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username: regUsername, password: regPassword }) });
-                    const message = await response.text();
-                    registerMessage.textContent = message;
-                    registerMessage.className = response.ok ? 'text-sm text-green-500' : 'text-sm text-red-500';
-                } catch (error) {
-                    registerMessage.textContent = 'An error occurred during registration.';
-                    registerMessage.className = 'text-sm text-red-500';
+        // --- WebSocket Logic ---
+        function connectToWebSocket() {
+            if(stompClient) { stompClient.disconnect(() => {}); }
+            const socket = new SockJS('/ws');
+            stompClient = Stomp.over(socket);
+            stompClient.connect({}, onWebSocketConnected, () => console.error('WS Error'));
+        }
+        function onWebSocketConnected() {
+            stompClient.subscribe(`/user/${currentUser}/queue/new-conversation`, onNewConversationReceived);
+            if (activeConversation) {
+                stompClient.subscribe(`/topic/conversation/${activeConversation.id}`, onMessageReceived);
+                stompClient.send(`/app/chat.addUser/${activeConversation.id}`, {}, JSON.stringify({ sender: currentUser, type: 'JOIN' }));
+            }
+        }
+        function onMessageReceived(payload) {
+            const message = JSON.parse(payload.body);
+            if (activeConversation && message.conversation.id === activeConversation.id) {
+                appendMessage(message);
+            } else {
+                const count = unreadCounts.get(message.conversation.id) || 0;
+                unreadCounts.set(message.conversation.id, count + 1);
+                renderConversationList();
+            }
+        }
+        function onNewConversationReceived() { renderConversationList(); }
+
+        // --- UI Rendering ---
+        function initializeChatApp() {
+            document.getElementById('chat-page').innerHTML = `
+                <aside class="w-1/3 bg-slate-50 border-r border-slate-200 p-4 flex flex-col rounded-l-2xl">
+                    <header class="mb-4">
+                        <h2 class="text-xl font-bold text-slate-900">Welcome, <span id="current-username"></span>!</h2>
+                        <form action="/logout" method="post" class="inline"><button type="submit" class="text-sm text-red-500 hover:underline">Logout</button></form>
+                    </header>
+                    <div class="flex gap-2 mb-4">
+                        <button id="new-chat-btn" class="flex-1 bg-green-500 text-white font-bold py-2 rounded-lg text-sm hover:bg-green-600">New Chat</button>
+                    </div>
+                    <h3 class="text-lg font-semibold text-slate-800 mb-2">Chats</h3>
+                    <ul id="conversation-list" class="space-y-1 overflow-y-auto flex-1"></ul>
+                </aside>
+                <main id="chat-main" class="w-2/3 flex flex-col">
+                    <div id="welcome-view" class="flex flex-col items-center justify-center h-full text-center text-slate-500">
+                        <svg class="w-24 h-24 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 5.523-4.477 10-10 10S1 17.523 1 12 5.477 2 11 2s10 4.477 10 10z"></path></svg>
+                        <h2 class="text-2xl font-bold">Select a chat to start messaging</h2>
+                    </div>
+                    <div id="chat-view" class="hidden flex-col flex-1">
+                        <header class="p-4 border-b border-slate-200"><h2 id="chat-header" class="text-xl font-bold text-slate-900"></h2></header>
+                        <ul id="messageArea" class="flex-1 p-6 space-y-2 overflow-y-auto"></ul>
+                        <footer class="p-4 bg-slate-50 border-t border-slate-200 rounded-br-2xl">
+                            <form id="messageForm" class="flex gap-3">
+                                <input type="text" id="message" placeholder="Type a message..." autocomplete="off" class="flex-1 px-4 py-3 border border-slate-300 rounded-lg">
+                                <button type="submit" class="bg-blue-500 text-white font-bold py-3 px-6 rounded-lg hover:bg-blue-600">Send</button>
+                            </form>
+                        </footer>
+                    </div>
+                </main>`;
+            
+            document.getElementById('current-username').textContent = currentUser;
+            document.getElementById('new-chat-btn').addEventListener('click', handleNewChat);
+            document.getElementById('close-modal-btn').addEventListener('click', () => document.getElementById('new-chat-modal').classList.add('hidden'));
+            document.getElementById('user-search-input').addEventListener('input', handleUserSearch);
+            
+            connectToWebSocket();
+            renderConversationList();
+        }
+
+        async function renderConversationList() {
+            const conversations = await fetchConversations();
+            const listElement = document.getElementById('conversation-list');
+            listElement.innerHTML = '';
+            if (conversations.length === 0) { listElement.innerHTML = '<li class="text-center text-slate-500 p-4">No conversations yet.</li>'; return; }
+            
+            conversations.forEach(conv => {
+                const listItem = document.createElement('li');
+                listItem.classList.add('conversation-item', 'p-2', 'rounded-lg', 'flex', 'items-center', 'gap-2');
+                listItem.dataset.conversationId = conv.id;
+                let convName = conv.type === 'GROUP' ? `G: ${conv.name}` : Array.from(conv.participants).find(p => p.username !== currentUser)?.username || 'Personal Chat';
+                listItem.innerHTML = `<span>${convName}</span>`;
+                const unreadCount = unreadCounts.get(conv.id);
+                if (unreadCount > 0) {
+                    const badge = document.createElement('span');
+                    badge.classList.add('ml-auto', 'bg-red-500', 'text-white', 'text-xs', 'font-bold', 'w-5', 'h-5', 'rounded-full', 'flex', 'items-center', 'justify-center');
+                    badge.textContent = unreadCount;
+                    listItem.appendChild(badge);
                 }
+                listItem.addEventListener('click', () => { activeConversation = conv; if (unreadCounts.has(conv.id)) { unreadCounts.delete(conv.id); renderConversationList(); } renderChatView(); });
+                listElement.appendChild(listItem);
             });
-            if (new URLSearchParams(window.location.search).has('error')) {
-                loginError.classList.remove('hidden');
+        }
+        
+        async function renderChatView() {
+            document.getElementById('welcome-view').classList.add('hidden');
+            const chatView = document.getElementById('chat-view');
+            chatView.classList.remove('hidden');
+            chatView.classList.add('flex');
+            let convName = activeConversation.type === 'GROUP' ? activeConversation.name : `Chat with ${Array.from(activeConversation.participants).find(p => p.username !== currentUser).username}`;
+            document.getElementById('chat-header').textContent = convName;
+            document.getElementById('messageForm').onsubmit = sendMessage;
+            const messageArea = document.getElementById('messageArea');
+            messageArea.innerHTML = '';
+            const messages = await fetchMessages(activeConversation.id);
+            messages.forEach(appendMessage);
+            connectToWebSocket();
+        }
+
+        function appendMessage(message) {
+             const messageArea = document.getElementById('messageArea');
+            const messageWrapper = document.createElement('li');
+            const isSent = message.sender === currentUser;
+            messageWrapper.classList.add('message-wrapper', isSent ? 'sent' : 'received');
+            const bubble = document.createElement('div');
+            bubble.classList.add('message-bubble');
+            const textContent = document.createElement('div');
+            textContent.classList.add('message-text-content');
+            const usernameElement = document.createElement('p');
+            usernameElement.classList.add('font-bold', 'text-sm');
+            usernameElement.textContent = message.sender;
+            usernameElement.style.color = getAvatarColor(message.sender);
+            const textElement = document.createElement('p');
+            textElement.textContent = message.content;
+            textContent.appendChild(usernameElement);
+            textContent.appendChild(textElement);
+            if (!isSent) {
+                const avatarElement = document.createElement('div');
+                avatarElement.classList.add('w-10', 'h-10', 'rounded-full', 'flex', 'items-center', 'justify-center', 'text-white', 'font-bold', 'flex-shrink-0');
+                avatarElement.textContent = message.sender[0];
+                avatarElement.style.backgroundColor = getAvatarColor(message.sender);
+                bubble.appendChild(avatarElement);
+            }
+            bubble.appendChild(textContent);
+            messageWrapper.appendChild(bubble);
+            messageArea.appendChild(messageWrapper);
+            messageArea.scrollTop = messageArea.scrollHeight;
+        }
+
+        function sendMessage(event) {
+            event.preventDefault();
+            const messageInput = document.getElementById('message');
+            const messageContent = messageInput.value.trim();
+            if (messageContent && stompClient) {
+                const chatMessage = { sender: currentUser, content: messageContent, type: 'CHAT', conversation: { id: activeConversation.id } };
+                stompClient.send(`/app/chat.sendMessage/${activeConversation.id}`, {}, JSON.stringify(chatMessage));
+                messageInput.value = '';
             }
         }
         
-        // --- NEW Chat App Initialization ---
-        function initializeChatApp(currentUser) {
-            document.getElementById('current-username').textContent = currentUser;
-            
-            const newGroupBtn = document.getElementById('new-group-btn');
-            const newChatBtn = document.getElementById('new-chat-btn');
-            const welcomeView = document.getElementById('welcome-view');
-            const chatView = document.getElementById('chat-view');
-
-            // Placeholder actions for new buttons
-            newGroupBtn.addEventListener('click', () => {
-                const groupName = prompt("Enter a name for your new group:");
-                if(groupName) {
-                    alert(`Group "${groupName}" would be created. (Backend not connected yet)`);
-                }
-            });
-
-            newChatBtn.addEventListener('click', () => {
-                const otherUser = prompt("Enter the username of the person you want to chat with:");
-                if(otherUser) {
-                    alert(`A private chat with "${otherUser}" would be started. (Backend not connected yet)`);
-                }
-            });
-            
-            // This is where we will eventually fetch and display the user's conversations.
-            // For now, it will just show the "No conversations yet" message.
+        function handleNewChat() {
+            document.getElementById('new-chat-modal').classList.remove('hidden');
+            document.getElementById('user-search-input').value = '';
+            document.getElementById('user-search-results').innerHTML = '';
         }
 
-        // Run the app!
+        async function handleUserSearch(event) {
+            const query = event.target.value.trim();
+            const resultsContainer = document.getElementById('user-search-results');
+            resultsContainer.innerHTML = '';
+            if (query.length < 1) return;
+            const users = await searchUsers(query);
+            users.forEach(user => {
+                if(user.username === currentUser) return;
+                const resultItem = document.createElement('li');
+                resultItem.classList.add('p-2', 'hover:bg-gray-100', 'cursor-pointer', 'rounded-lg');
+                resultItem.textContent = `${user.username} (${user.phoneNumber})`;
+                resultItem.onclick = async () => {
+                    await createPersonalChat(user.phoneNumber);
+                    document.getElementById('new-chat-modal').classList.add('hidden');
+                };
+                resultsContainer.appendChild(resultItem);
+            });
+        }
+        function setupAuthPage() {
+            // Unchanged
+        }
+
         startApp();
     </script>
 </body>

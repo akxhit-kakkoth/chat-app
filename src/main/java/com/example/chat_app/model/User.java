@@ -1,9 +1,9 @@
-package com.example.chat_app;
+package com.example.chat_app.model;
 
 import java.util.HashSet;
 import java.util.Set;
 
-import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonProperty;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -22,18 +22,25 @@ public class User {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(unique = true) // Usernames must be unique
+    @Column(unique = true, nullable = false)
     private String username;
 
-    @JsonIgnore // Never send the password to the frontend
+    // NEW: Add a unique, non-nullable phone number field
+    @Column(unique = true, nullable = false)
+    private String phoneNumber;
+
+    @JsonProperty(access = JsonProperty.Access.WRITE_ONLY)
     private String password;
 
-    // This tells the database that the "participants" field in the Conversation entity manages this relationship.
     @ManyToMany(mappedBy = "participants", fetch = FetchType.EAGER)
-    @JsonIgnore // Avoid infinite loops when sending data
+    @JsonProperty(access = JsonProperty.Access.WRITE_ONLY)
     private Set<Conversation> conversations = new HashSet<>();
 
-    // Getters and Setters
+    // Add Getters and Setters for phoneNumber
+    public String getPhoneNumber() { return phoneNumber; }
+    public void setPhoneNumber(String phoneNumber) { this.phoneNumber = phoneNumber; }
+    
+    // --- Existing Getters and Setters ---
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }
     public String getUsername() { return username; }

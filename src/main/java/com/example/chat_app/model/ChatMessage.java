@@ -1,4 +1,4 @@
-package com.example.chat_app;
+package com.example.chat_app.model;
 
 import java.time.Instant;
 
@@ -24,15 +24,14 @@ public class ChatMessage {
     @Enumerated(EnumType.STRING)
     private MessageType type;
     
-    @Lob // Allows for longer text content
+    @Lob
     private String content;
     
-    private String sender; // We still store the sender's username as a string
+    private String sender;
 
-    // This is the new relationship. Many messages can belong to one conversation.
     @ManyToOne
     @JoinColumn(name = "conversation_id")
-    @JsonBackReference // Helps prevent infinite loops in data conversion
+    @JsonBackReference
     private Conversation conversation;
 
     private Instant timestamp;
@@ -41,7 +40,7 @@ public class ChatMessage {
         CHAT,
         JOIN,
         LEAVE,
-        TYPING // We will remove private message type later, as all messages are now contextual
+        TYPING
     }
 
     // Getters and Setters

@@ -1,4 +1,7 @@
-package com.example.chat_app;
+package com.example.chat_app.controller;
+
+import java.time.Instant;
+import java.util.List;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.messaging.handler.annotation.DestinationVariable;
@@ -10,9 +13,6 @@ import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.ResponseBody;
-
-import java.time.Instant;
-import java.util.List;
 
 @Controller
 public class ChatController {
@@ -36,7 +36,6 @@ public class ChatController {
         chatMessage.setTimestamp(Instant.now());
         chatMessageRepository.save(chatMessage);
         
-        // Send message to the conversation topic
         messagingTemplate.convertAndSend(String.format("/topic/conversation/%d", conversationId), chatMessage);
     }
 
@@ -52,12 +51,6 @@ public class ChatController {
         messagingTemplate.convertAndSend(String.format("/topic/conversation/%d", conversationId), chatMessage);
     }
     
-    @MessageMapping("/chat.typing/{conversationId}")
-    public void handleTyping(@DestinationVariable Long conversationId, @Payload ChatMessage chatMessage) {
-        chatMessage.setType(ChatMessage.MessageType.TYPING);
-        messagingTemplate.convertAndSend(String.format("/topic/conversation/%d", conversationId), chatMessage);
-    }
-
     @GetMapping("/api/conversations/{conversationId}/messages")
     @ResponseBody
     public List<ChatMessage> getChatHistory(@PathVariable Long conversationId) {

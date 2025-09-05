@@ -1,4 +1,4 @@
-package com.example.chat_app;
+package com.example.chat_app.model;
 
 import java.util.HashSet;
 import java.util.Set;
@@ -21,13 +21,11 @@ public class Conversation {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    private String name; // e.g., "Project Team" for a group, or null for a personal chat
+    private String name;
 
     @Enumerated(EnumType.STRING)
     private ConversationType type;
 
-    // This is a "many-to-many" relationship.
-    // One conversation can have many users, and one user can be in many conversations.
     @ManyToMany(fetch = FetchType.EAGER)
     @JoinTable(
         name = "conversation_participants",

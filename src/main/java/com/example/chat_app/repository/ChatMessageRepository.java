@@ -1,11 +1,12 @@
-package com.example.chat_app;
+package com.example.chat_app.repository;
 
 import java.util.List;
 
 import org.springframework.data.jpa.repository.JpaRepository;
 
+import com.example.chat_app.model.ChatMessage;
+
 public interface ChatMessageRepository extends JpaRepository<ChatMessage, Long> {
     
-    // This is the new, correct method to find messages for a specific conversation
     List<ChatMessage> findByConversation_IdOrderByTimestampAsc(Long conversationId);
 }

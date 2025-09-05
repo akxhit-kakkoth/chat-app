@@ -1,4 +1,4 @@
-package com.example.chat_app;
+package com.example.chat_app.service;
 
 import java.util.ArrayList;
 
@@ -7,6 +7,8 @@ import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
+
+import com.example.chat_app.model.User;
 
 @Service
 public class UserDetailsServiceImpl implements UserDetailsService {

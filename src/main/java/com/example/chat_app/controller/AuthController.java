@@ -1,4 +1,4 @@
-package com.example.chat_app;
+package com.example.chat_app.controller;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;

@@ -1,4 +1,4 @@
-package com.example.chat_app;
+package com.example.chat_app.service;
 
 import java.util.HashSet;
 import java.util.Map;
@@ -15,6 +15,8 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.socket.messaging.SessionConnectedEvent;
 import org.springframework.web.socket.messaging.SessionDisconnectEvent;
 
+import com.example.chat_app.model.ChatMessage;
+
 @Component
 public class WebSocketEventListener {
 
@@ -23,7 +25,6 @@ public class WebSocketEventListener {
     @Autowired
     private SimpMessageSendingOperations messagingTemplate;
 
-    // Map to store active users per conversation. Key: conversationId, Value: Set of usernames
     private static final Map<Long, Set<String>> conversationUserMap = new ConcurrentHashMap<>();
 
     @EventListener
