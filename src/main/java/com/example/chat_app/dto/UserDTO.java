@@ -1,4 +1,4 @@
-package com.example.chatapp.dto;
+package com.example.chat_app.dto;
 
 public class UserDTO {
     private String username;
@@ -9,7 +9,6 @@ public class UserDTO {
         this.phoneNumber = phoneNumber;
     }
 
-    // Getters and Setters
     public String getUsername() { return username; }
     public void setUsername(String username) { this.username = username; }
     public String getPhoneNumber() { return phoneNumber; }

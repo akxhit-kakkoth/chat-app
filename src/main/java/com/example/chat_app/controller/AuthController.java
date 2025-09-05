@@ -1,5 +1,7 @@
 package com.example.chat_app.controller;
 
+import com.example.chat_app.model.User;
+import com.example.chat_app.repository.UserRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -20,8 +22,8 @@ public class AuthController {
 
     @PostMapping("/register")
     public ResponseEntity<?> registerUser(@RequestBody User user) {
-        if (userRepository.findByUsername(user.getUsername()).isPresent()) {
-            return ResponseEntity.badRequest().body("Username is already taken!");
+        if (userRepository.findByUsername(user.getUsername()).isPresent() || userRepository.findByPhoneNumber(user.getPhoneNumber()).isPresent()) {
+            return ResponseEntity.badRequest().body("Username or phone number is already taken!");
         }
 
         user.setPassword(passwordEncoder.encode(user.getPassword()));

@@ -9,6 +9,7 @@ import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
 
 import com.example.chat_app.model.User;
+import com.example.chat_app.repository.UserRepository;
 
 @Service
 public class UserDetailsServiceImpl implements UserDetailsService {

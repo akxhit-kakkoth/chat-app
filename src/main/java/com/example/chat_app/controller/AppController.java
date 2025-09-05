@@ -9,12 +9,9 @@ import org.springframework.web.bind.annotation.ResponseBody;
 @Controller
 public class AppController {
 
-    // You can remove the /ping endpoint now, we don't need it anymore.
-    
-    // THIS IS THE CORRECTED MAPPING
     @GetMapping("/chat")
     public String chatPage() {
-        return "forward:/index.html"; // The fix is to forward to the static file
+        return "forward:/index.html";
     }
     
     @GetMapping("/api/user/me")

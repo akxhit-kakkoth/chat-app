@@ -39,8 +39,7 @@ public class ChatMessage {
     public enum MessageType {
         CHAT,
         JOIN,
-        LEAVE,
-        TYPING
+        LEAVE
     }
 
     // Getters and Setters

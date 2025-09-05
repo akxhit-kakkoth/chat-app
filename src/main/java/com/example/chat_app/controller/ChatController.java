@@ -14,6 +14,12 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.ResponseBody;
 
+import com.example.chat_app.model.ChatMessage;
+import com.example.chat_app.model.Conversation;
+import com.example.chat_app.repository.ChatMessageRepository;
+import com.example.chat_app.repository.ConversationRepository;
+import com.example.chat_app.service.WebSocketEventListener;
+
 @Controller
 public class ChatController {
 

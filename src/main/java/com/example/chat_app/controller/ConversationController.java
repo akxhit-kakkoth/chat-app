@@ -14,9 +14,10 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.example.chat_app.model.Conversation;
 import com.example.chat_app.model.User;
 import com.example.chat_app.repository.ConversationRepository;
-import com.example.chatapp.repository.UserRepository;
+import com.example.chat_app.repository.UserRepository;
 
 @RestController
 @RequestMapping("/api/conversations")
@@ -28,7 +29,6 @@ public class ConversationController {
     @Autowired
     private ConversationRepository conversationRepository;
 
-    // NEW: Inject the template for sending WebSocket messages
     @Autowired
     private SimpMessagingTemplate messagingTemplate;
     
@@ -53,7 +53,9 @@ public class ConversationController {
         
         Conversation savedGroup = conversationRepository.save(newGroup);
 
-        // NEW: Notify all participants that a new group has been created
+        // THIS IS THE FIX:
+        // After saving the group, instantly notify all participants via WebSocket
+        // so their conversation list updates in real-time.
         savedGroup.getParticipants().forEach(participant -> {
             messagingTemplate.convertAndSendToUser(participant.getUsername(), "/queue/new-conversation", savedGroup);
         });
@@ -61,11 +63,9 @@ public class ConversationController {
         return ResponseEntity.ok(savedGroup);
     }
     
-    // UPDATED: This now accepts a phone number and pushes updates
     @PostMapping("/personal")
     public ResponseEntity<Conversation> createPersonalConversation(@AuthenticationPrincipal UserDetails userDetails, @RequestBody String otherUserPhoneNumber) {
         User user1 = userRepository.findByUsername(userDetails.getUsername()).get();
-        // UPDATED: Find user by phone number instead of username
         Optional<User> user2Opt = userRepository.findByPhoneNumber(otherUserPhoneNumber);
 
         if (!user2Opt.isPresent()) {
@@ -86,7 +86,6 @@ public class ConversationController {
         
         Conversation savedChat = conversationRepository.save(newPersonalChat);
 
-        // NEW: Notify both users that a new personal chat has been created
         messagingTemplate.convertAndSendToUser(user1.getUsername(), "/queue/new-conversation", savedChat);
         messagingTemplate.convertAndSendToUser(user2.getUsername(), "/queue/new-conversation", savedChat);
 
@@ -94,7 +93,6 @@ public class ConversationController {
     }
 }
 
-// (Helper class CreateGroupRequest remains the same)
 class CreateGroupRequest {
     private String groupName;
     private Set<String> participantUsernames;
